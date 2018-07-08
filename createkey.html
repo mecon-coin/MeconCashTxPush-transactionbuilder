@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>offline transaction generator plus push tx</title>
+</head>
+
+<table>
+        <tr>
+            <td>
+                <input type="button" id="more_fields" onclick="mypage.createKey();" value="생성하기" />
+            </td>
+        </tr>
+</table>
+
+<script type="text/javascript" src="Peercoinjs.js"></script>
+<script type="text/javascript">
+
+var mypage = {}
+mypage.createKey = function() {
+    var seedHex = ("23423423423423423424444444444444432342342334").toString('hex') // 시드값은 16 < x < 64
+    var hdnode = PeercoinJS.HDNode.fromSeedHex(seedHex, PeercoinJS.NETWORKS)
+    console.log('Address: ' + hdnode.getAddress())
+    console.log('Private key (WIF): ' + hdnode.keyPair.toWIF())
+}
+</script>
+
+<body>
+</body>
+
+</html>

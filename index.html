@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>offline transaction generator plus push tx</title>
+    <style type="text/css">
+    div {
+        padding: 10px;
+    }
+    </style>
+</head>
+
+<body>
+    <h2>Offline MeconCash transaction builder</h2>
+    <table>
+        <tr>
+            <td>
+                <div id="inputs_fileds">
+                    <div>
+                        <div class='label'>Input 0:</div>
+                        <div class="content">
+                            <span>Tx Id: <input type="text" style="width:420px;" name="txId0" id="txId0" value="" /><small>(64 long hex string)</small></span>
+                            <br/>
+                            <span>n: <input type="text" style="width:12px;" name="txN0" id="txN0" value="" /><small>(&gt; -1)</small></span>
+                            <br/>
+                            <span>Private key WIF: <input type="text" style="width:350px;" name="txWif0" id="txWif0" value="" /><small></small></span>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <input type="button" id="more_fields" onclick="mypage.addInputFields();" value="+" />
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div id="outputs_fileds">
+                    <div>
+                        <div class='label'>Output 0:</div>
+                        <div class="content">
+                            <span>Amount: <input type="text" style="width:48px;" name="txoAmount0" id="txoAmount0" value="" /><small>(MCH)</small></span>
+                            <span>MeconCash address: <input type="text" style="width:198px;" name="txoTo0" id="txoTo0" value="" /><small>(starts with M)</small></span>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <input type="button" id="more_fields2" onclick="mypage.addOutputFields();" value="+" />
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <textarea id="tasignedtx" readonly="1" rows="9" cols="90"></textarea>
+            </td>
+            <td>
+                <input type="button" onclick="mypage.generateTx();" value="generate" /> &nbsp;
+                <input type="button" onclick="mypage.pushTx();" value="send" />
+            </td>
+        </tr>
+    </table>
+    <script type="text/javascript" src="Peercoinjs.js"></script>
+    <script type="text/javascript">
+    var mypage = {}
+    mypage.input = 0;
+    mypage.output = 0;
+
+    mypage.addInputFields = function() {
+        mypage.input++;
+        var objTo = document.getElementById('inputs_fileds')
+        var divtest = document.createElement("div");
+        divtest.innerHTML = '<div class="label">Input ' + mypage.input + ':</div><div class="content">' +
+            '<span>Tx Id: <input type="text" style="width:420px;" name="txId' + mypage.input + '" id="txId' + mypage.input + '" value="" /><small>(64 long hex string)</small></span><br/>' +
+            '<span>n: <input type="text" style="width:12px;" name="txN' + mypage.input + '" id="txN' + mypage.input + '" value="" /><small>(&gt; -1)</small></span><br/>' +
+            '<span>Private key WIF: <input type="text" style="width:350px;" name="txWif' + mypage.input + '" id="txWif' + mypage.input + '" value="" /><small>(starts with M)</small></span>' + '</div>';
+
+        objTo.appendChild(divtest)
+    }
+
+    mypage.addOutputFields = function() {
+        mypage.output++;
+        var objTo = document.getElementById('outputs_fileds')
+        var divtest = document.createElement("div");
+        divtest.innerHTML = '<div class="label">Input ' + mypage.output + ':</div><div class="content">' +
+            '<span>Amount: <input type="text" style="width:48px;" name="txoAmount' + mypage.output + '" id="txoAmount' + mypage.output + '" value="" /><small>(ppc)</small></span>' +
+            '<span>MeconCash address: <input type="text" style="width:198px;" name="txoTo' + mypage.output + '" id="txoTo' + mypage.output + '" value="" /><small>(starts with P)</small></span>' + '</div>';
+
+        objTo.appendChild(divtest)
+    }
+	fetch_unix_timestamp = function()
+	{
+		//return parseInt(new Date().getTime().toString().substring(0, 10));
+		return Math.floor(new Date().getTime() / 1000);
+	}
+
+    mypage.construct = function(f, sign) {
+
+        var txb = new PeercoinJS.TransactionBuilder(PeercoinJS.networks.peercoin)
+
+        if (f.version !== undefined) {
+            txb.tx.version = f.version
+        }
+
+		txb.tx.txtime = fetch_unix_timestamp();
+		
+        if (f.locktime !== undefined) {
+            txb.setLockTime(f.locktime)
+        }
+
+        f.inputs.forEach(function(input) {
+            var prevTxScript
+
+            if (input.prevTxScript) {
+                prevTxScript = PeercoinJS.script.fromASM(input.prevTxScript)
+            }
+
+            txb.addInput(input.txId, input.vout, input.sequence, prevTxScript)
+        })
+
+        f.outputs.forEach(function(output) {
+            txb.addOutput(PeercoinJS.script.fromASM(output.script), output.value)
+        })
+
+        if (sign === undefined || sign) {
+            f.inputs.forEach(function(input, index) {
+                input.signs.forEach(function(sign) {
+                    var keyPair = PeercoinJS.ECPair.fromWIF(sign.keyPair, PeercoinJS.networks.peercoin)
+                    var redeemScript
+
+                    if (sign.redeemScript) {
+                        redeemScript = PeercoinJS.script.fromASM(sign.redeemScript)
+                    }
+                    txb.sign(index, keyPair, redeemScript, sign.hashType)
+                })
+            })
+        }
+
+        return txb
+    }
+
+    mypage.generateTx = function() {
+        var mytxval = {};
+        mytxval.inputs = [];
+        mytxval.outputs = [];
+
+        for (var i = 0; i <= mypage.input; i++) {
+            var inp = {};
+            var ob = document.getElementById('txId' + i)
+            if (!!ob) {
+                inp.txId = ob.value;
+                inp.vout = parseInt(document.getElementById('txN' + i).value, 10);
+                inp.signs = [];
+                var objWif = document.getElementById('txWif' + i)
+                inp.signs.push({
+                    keyPair: objWif.value
+                });
+                mytxval.inputs.push(inp);
+            }
+        }
+        for (var i = 0; i <= mypage.output; i++) {
+            var op = {};
+            var ob = document.getElementById('txoAmount' + i)
+            if (!!ob) {
+                var obpk = document.getElementById('txoTo' + i)
+                var pubkey = ((PeercoinJS.address.fromBase58Check(obpk.value)).hash).toString('hex')
+                op.script = 'OP_DUP OP_HASH160 ' + pubkey + ' OP_EQUALVERIFY OP_CHECKSIG'
+                op.value = Math.floor(1000000 * parseFloat(ob.value));
+
+                mytxval.outputs.push(op);
+            }
+        }
+
+        var txb = mypage.construct(mytxval)
+        var tx = txb.build()
+
+        document.getElementById('tasignedtx').value = tx.toHex();
+    }
+
+    mypage.pushTx = function() {
+
+        if (navigator.onLine) {
+            if (!!document.getElementById('tasignedtx').value) {
+                mypage.crossDomainPost(document.getElementById('tasignedtx').value);
+            }
+        } else {
+            alert('no internet connection detected');
+        }
+    }
+
+    mypage.crossDomainPost = function(hexTX) {
+        // Add the iframe with a unique name
+        var iframe = document.createElement("iframe");
+        var uniqueString = "CHANGE_THIS_TO_SOME_UNIQUE_STRING";
+        document.body.appendChild(iframe);
+        iframe.style.display = "none";
+        iframe.contentWindow.name = uniqueString;
+
+        // construct a form with hidden inputs, targeting the iframe
+        var form = document.createElement("form");
+        form.target = uniqueString;
+        form.action = "https://multicoins.org/api/v1/tx/push/ppc";
+        form.method = "POST";
+
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "hex";
+        input.value = hexTX;
+        form.appendChild(input);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+    </script>
+</body>
+
+</html>
