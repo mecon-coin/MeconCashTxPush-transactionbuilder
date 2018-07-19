@@ -1,5 +1,5 @@
-# meconcash-rawtransaction-html
-미콘캐시 html 상으로 rawtransaction 을 보낼수 있는 javascript 라이브러리
+MeconCashTxPush
+A simple (offline) transactionbuilder
+MeconCashTxPush uses peercoinjs-lib, fork from bitcoinjs-lib, to build a signed raw transaction.
 
-실행파일은 index.hmtl 입니다.
-
+Consequently, once online, the raw transaction can be sent to a online push provider.
